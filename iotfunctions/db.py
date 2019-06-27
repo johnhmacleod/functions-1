@@ -1901,6 +1901,7 @@ class Database(object):
 
         #assemble group by
         grp = []
+        outer_grp=[]
         #attempt to push aggregates down to sql
         #for db aggregates that can't be pushed, do them in pandas
         pandas_aggregate = None
@@ -1909,23 +1910,25 @@ class Database(object):
                 msg = 'You must supply a timestamp column when doing a time-based aggregate'
                 raise ValueError (msg)
             if time_grain == timestamp:
-                grp.append(table.c[timestamp].label(timestamp)) 
+                args.append(table.c[timestamp].label(timestamp))
             elif time_grain.endswith('min'):
                 minutes = int(time_grain[:-3])
-                grp.append(self._ts_col_rounded_to_minutes(table_name,schema,timestamp,minutes,timestamp)) 
+                args.append(self._ts_col_rounded_to_minutes(table_name,schema,timestamp,minutes,timestamp))
             elif time_grain.endswith('H'):
                 hours = int(time_grain[:-1])
-                grp.append(self._ts_col_rounded_to_hours(table_name,schema,timestamp,hours,timestamp))                 
+                args.append(self._ts_col_rounded_to_hours(table_name,schema,timestamp,hours,timestamp))
             elif time_grain == 'day':
-                grp.append(func.date(table.c[timestamp]).label(timestamp))
+                args.append(func.date(table.c[timestamp]).label(timestamp))
             elif time_grain == 'week':
-                grp.append(func.this_week(table.c[timestamp]).label(timestamp)) 
+                args.append(func.this_week(table.c[timestamp]).label(timestamp))
             elif time_grain == 'month':
-                grp.append(func.this_month(table.c[timestamp]).label(timestamp)) 
+                args.append(func.this_month(table.c[timestamp]).label(timestamp))
             elif time_grain == 'year':
-                grp.append(func.this_year(table.c[timestamp]).label(timestamp))
+                args.append(func.this_year(table.c[timestamp]).label(timestamp))
             else:
                 pandas_aggregate = time_grain
+
+            outer_grp.append(timestamp)
 
         for g in groupby:
             try:
@@ -1935,10 +1938,10 @@ class Database(object):
                     try:
                         grp.append(dim.c[g])
                     except KeyError:
-                        msg = 'group by column %s not found in main table or dimension table' %g  
+                        msg = 'group by column %s not found in main table or dimension table' %g
                         raise ValueError(msg)
                 else:
-                    msg = 'group by column %s not found in main table and no dimension table specified' %g  
+                    msg = 'group by column %s not found in main table and no dimension table specified' %g
                     raise KeyError(msg)
         args.extend(grp)
 
@@ -1951,7 +1954,17 @@ class Database(object):
 
             # push aggregates to the database
 
-            query = self.session.query(*args).group_by(*grp)
+            #query = self.session.query(*args).group_by(*grp)
+
+            outer_arg_names = []
+
+            query = self.session.query(*args)
+            subquery_name = "subquery"
+            selectable_subquery = query.subquery(subquery_name).selectable
+
+
+
+
             if requires_dim_join:
                 query = query.join(dim, dim.c.deviceid == table.c[deviceid_col])
             if not start_ts is None:
