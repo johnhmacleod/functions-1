@@ -29,7 +29,7 @@ To install in IBM Watson Studio from another Jupyter notebook:
 !pip install git+git://github.com/ibm-watson-iot/functions.git@production --upgrade
 ```
 
-Test for sucessful install:
+Test for successful install:
 ```
 import iotfunctions as fn
 print(fn.__version__) 

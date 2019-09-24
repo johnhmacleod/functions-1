@@ -82,7 +82,7 @@ doc/cdoc/build
 ./.shelf
 MANIFEST
 .cache
-
+.pytest*
 # Paver generated files #
 #########################
 /release
